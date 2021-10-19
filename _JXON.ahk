@@ -38,9 +38,9 @@
 JxonDecode(&src, args*) {
 	static q := Chr(34)
 
-	key := "", is_key := false
+	key := "", isKey := false
 	stack := [ tree := [] ]
-	is_arr := Map(tree, 1) ; ahk v2
+	isArr := Map(tree, 1) ; ahk v2
 	next := q "{[01234567890-tfn"
 	pos := 0
 
@@ -88,17 +88,17 @@ JxonDecode(&src, args*) {
 			
 			stack.InsertAt(1,val)
 
-			is_key := (ch == "{")
-			is_arr[val] := !is_key
-			next := q (is_key ? "}" : "{[]0123456789-tfn")
+			isKey := (ch == "{")
+			isArr[val] := !isKey
+			next := q (isKey ? "}" : "{[]0123456789-tfn")
 
 		} else if InStr("}]", ch) {	; end object/map or array
 			stack.RemoveAt(1)
-			next := stack[1]==tree ? "" : is_arr[stack[1]] ? ",]" : ",}"
+			next := stack[1]==tree ? "" : isArr[stack[1]] ? ",]" : ",}"
 
 		} else if InStr(",:", ch) {
-			is_key := (!isArrayType && ch == ",")
-			next := is_key ? q : q "{[0123456789-tfn"
+			isKey := (!isArrayType && ch == ",")
+			next := isKey ? q : q "{[0123456789-tfn"
 
 		} else { ; string | number | true | false | null
 			if (ch == q) { ; string
@@ -131,7 +131,7 @@ JxonDecode(&src, args*) {
 						val := SubStr(val, 1, i-1) . Chr(xxxx) . SubStr(val, i+6)
 				}
 
-				if is_key {
+				if isKey {
 					key := val, next := ":"
 					continue
 				}
@@ -147,7 +147,7 @@ JxonDecode(&src, args*) {
                     val := (val == "true")
                 else if (val == "null")
                     val := ""
-                else if is_key {
+                else if isKey {
                     pos--, next := "#"
                     continue
                 }
@@ -169,7 +169,7 @@ JxonEncode(obj, indent:="", lvl:=1) {
 	if IsObject(obj) {
 		isArrayType := (obj is Array)
 		isMapType := (obj is Map)
-		isClassType := (obj is Object) && !isArrayType &&!isMapType
+		isClassType := (obj is Object) && !isArrayType && !isMapType
 
 		if (!isArrayType && !isMapType && !isClassType) {
 			throw Error("Object type not supported.`r`n`r`nObj Type: " Type(obj), -1, Format("<Object at 0x{:p}>", ObjPtr(obj)))
@@ -198,7 +198,7 @@ JxonEncode(obj, indent:="", lvl:=1) {
 			out .= q "$type" q (indent ? ": " : ":") q ObjGetBase(obj).__Class q ( indent ? ",`n" . indt : "," )
 		}
 
-		for k, v in itObj {
+		for (k, v in itObj) {
 			if (IsObject(k) || k == "") {
 				throw Error("Invalid object key.", -1, k ? Format("<Object at 0x{:p}>", ObjPtr(obj)) : "<blank>")
 			}
@@ -213,8 +213,9 @@ JxonEncode(obj, indent:="", lvl:=1) {
 
 		if (out != "") {
 			out := Trim(out, ",`n" . indent)
-			if (indent != "")
+			if (indent != "") {
 				out := "`n" . indt . out . "`n" . SubStr(indt, StrLen(indent)+1)
+			}
 		}
 
 		return isArrayType ? "[" . out . "]" : "{" . out . "}"

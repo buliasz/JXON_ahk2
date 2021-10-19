@@ -10,7 +10,7 @@ Only Array(), Map(), Class() or a nested combination is supported.
 ## JxonEncode(obj, indent:=0)
 
 ```
-var := JxonEncode(obj, indent:=0)
+text := JxonEncode(obj, indent:=0)
 ```
 
 Output var is the serialized text.
