@@ -2,9 +2,9 @@
 ; Example ===================================================================================
 ; ===========================================================================================
 
-; Msgbox "The idea here is to create several nested arrays, save to text with jxon_dump(), and then reload the array with jxon_load().  The resulting array should be the same.`r`n`r`nThis is what this example shows."
-; a := Map(), b := Map(), c := Map(), d := Map(), e := Map(), f := Map() ; Object() is more technically correct than {} but both will work.
+; Msgbox "The idea here is to create several nested arrays, save to text with JxonEncode(), and then reload the array with JxonDecode().  The resulting array should be the same.`r`n`r`nThis is what this example shows."
 
+; a := Map(), b := Map(), c := Map(), d := Map(), e := Map(), f := Map()
 ; d["g"] := 1, d["h"] := 2, d["i"] := ["purple","pink","pippy red"]
 ; e["g"] := 1, e["h"] := 2, e["i"] := Map("1","test1","2","test2","3","test3")
 ; f["g"] := 1, f["h"] := 2, f["i"] := [1,2,Map("a",1.0009,"b",2.0003,"c",3.0001)]
@@ -13,18 +13,17 @@
 ; b["test3"] := "test33", b["e"] := e
 ; c["test5"] := "test55", c["f"] := f
 
-; myObj := Map()
-; myObj["a"] := a, myObj["b"] := b, myObj["c"] := c, myObj["test7"] := "test77", myObj["test8"] := "test88"
+; myObj := MyClass()
+; myObj.a := a, myObj.b := b, myObj.c := c, myObj.test7 := "test77", myObj.test8 := "test88"
 
-; g := ["blue","green","red"], myObj["h"] := g ; add linear array for testing
+; g := ["blue","green","red"], myObj.h := g ; add linear array for testing
 
-; q := Chr(34)
-; textData2 := Jxon_dump(myObj,4) ; ===> convert array to JSON
+; textData2 := JxonEncode(myObj,4) ; ===> convert array to JSON
 ; msgbox "JSON output text:`r`n===========================================`r`n(Should match second output.)`r`n`r`n" textData2
 
-; newObj := Jxon_load(&textData2) ; ===> convert json back to array
+; newObj := JxonDecode(&textData2) ; ===> convert json back to MyClass object
 
-; textData3 := Jxon_dump(newObj,4) ; ===> break down array into 2D layout again, should be identical
+; textData3 := JxonEncode(newObj,4) ; ===> break down array into JSON string again, should be identical
 ; msgbox "Second output text:`r`n===========================================`r`n(should be identical to first output)`r`n`r`n" textData3
 
 ; ExitApp
@@ -36,21 +35,21 @@
 ; originally posted by user coco on AutoHotkey.com
 ; https://github.com/cocobelgica/AutoHotkey-JSON
 
-Jxon_Load(&src, args*) {
+JxonDecode(&src, args*) {
 	static q := Chr(34)
-	
+
 	key := "", is_key := false
 	stack := [ tree := [] ]
 	is_arr := Map(tree, 1) ; ahk v2
 	next := q "{[01234567890-tfn"
 	pos := 0
-	
+
 	while ( (ch := SubStr(src, ++pos, 1)) != "" ) {
 		if InStr(" `t`n`r", ch)
 			continue
 		if !InStr(next, ch, true) {
 			testArr := StrSplit(SubStr(src, 1, pos), "`n")
-			
+
 			ln := testArr.Length
 			col := pos - InStr(src, "`n",, -(StrLen(src)-pos+1))
 
@@ -69,25 +68,38 @@ Jxon_Load(&src, args*) {
 
 			throw Error(msg, -1, ch)
 		}
-		
+
 		obj := stack[1]
 		memType := Type(obj)
-		is_array := (memType = "Array") ? 1 : 0
-		
-		if i := InStr("{[", ch) { ; start new object / map?
-			val := (i = 1) ? Map() : Array()	; ahk v2
+		isArrayType := (memType = "Array") ? 1 : 0
+
+		if i := InStr("{[", ch) { ; start new object/map or array
+			if (i == 1) {
+				val := Map()
+			} else {
+				val := Array()
+			}
+
+			if (isArrayType) {
+				obj.Push(val)
+			} else {
+				obj[key] := val
+			}
 			
-			is_array ? obj.Push(val) : obj[key] := val
 			stack.InsertAt(1,val)
-			
-			is_arr[val] := !(is_key := ch == "{")
+
+			is_key := (ch == "{")
+			is_arr[val] := !is_key
 			next := q (is_key ? "}" : "{[]0123456789-tfn")
-		} else if InStr("}]", ch) {
+
+		} else if InStr("}]", ch) {	; end object/map or array
 			stack.RemoveAt(1)
 			next := stack[1]==tree ? "" : is_arr[stack[1]] ? ",]" : ",}"
+
 		} else if InStr(",:", ch) {
-			is_key := (!is_array && ch == ",")
+			is_key := (!isArrayType && ch == ",")
 			next := is_key ? q : q "{[0123456789-tfn"
+
 		} else { ; string | number | true | false | null
 			if (ch == q) { ; string
 				i := pos
@@ -103,11 +115,11 @@ Jxon_Load(&src, args*) {
 
 				val := StrReplace(val, "\/", "/")
 				val := StrReplace(val, "\" . q, q)
-				, val := StrReplace(val, "\b", "`b")
-				, val := StrReplace(val, "\f", "`f")
-				, val := StrReplace(val, "\n", "`n")
-				, val := StrReplace(val, "\r", "`r")
-				, val := StrReplace(val, "\t", "`t")
+				val := StrReplace(val, "\b", "`b")
+				val := StrReplace(val, "\f", "`f")
+				val := StrReplace(val, "\n", "`n")
+				val := StrReplace(val, "\r", "`r")
+				val := StrReplace(val, "\t", "`t")
 
 				i := 0
 				while i := InStr(val, "\",, i+1) {
@@ -118,14 +130,15 @@ Jxon_Load(&src, args*) {
 					if (xxxx < 0x100)
 						val := SubStr(val, 1, i-1) . Chr(xxxx) . SubStr(val, i+6)
 				}
-				
+
 				if is_key {
 					key := val, next := ":"
 					continue
 				}
+
 			} else { ; number | true | false | null
 				val := SubStr(src, pos, i := RegExMatch(src, "[\]\},\s]|$",, pos)-pos)
-				
+
                 if IsInteger(val)
                     val += 0
                 else if IsFloat(val)
@@ -138,51 +151,63 @@ Jxon_Load(&src, args*) {
                     pos--, next := "#"
                     continue
                 }
-				
+
 				pos += i-1
 			}
-			
-			is_array ? obj.Push(val) : obj[key] := val
-			next := obj == tree ? "" : is_array ? ",]" : ",}"
+
+			isArrayType ? obj.Push(val) : obj[key] := val
+			next := obj == tree ? "" : isArrayType ? ",]" : ",}"
 		}
 	}
-	
-	return tree[1]
+
+	return _ConvertObjectMapsToObjects(tree[1])
 }
 
-Jxon_Dump(obj, indent:="", lvl:=1) {
+JxonEncode(obj, indent:="", lvl:=1) {
 	static q := Chr(34)
-	
+
 	if IsObject(obj) {
-		memType := Type(obj) ; Type.Call(obj)
-		is_array := (memType = "Array") ? 1 : 0
-		
-		if (memType ? (memType != "Object" And memType != "Map" And memType != "Array") : (ObjGetCapacity(obj) == ""))
+		isArrayType := (obj is Array)
+		isMapType := (obj is Map)
+		isClassType := (obj is Object) && !isArrayType &&!isMapType
+
+		if (!isArrayType && !isMapType && !isClassType) {
 			throw Error("Object type not supported.`r`n`r`nObj Type: " Type(obj), -1, Format("<Object at 0x{:p}>", ObjPtr(obj)))
-		
-		if IsInteger(indent)
-		{
-			if (indent < 0)
+		}
+
+		if IsInteger(indent) {
+			if (indent < 0) {
 				throw Error("Indent parameter must be a postive integer.", -1, indent)
+			}
 			spaces := indent, indent := ""
-			
-			Loop spaces ; ===> changed
+
+			loop spaces { ; ===> changed
 				indent .= " "
+			}
 		}
 		indt := ""
-		
-		Loop indent ? lvl : 0
+
+		loop (indent ? lvl : 0) {
 			indt .= indent
+		}
 
 		lvl += 1, out := "" ; Make #Warn happy
-		for k, v in obj {
-			if IsObject(k) || (k == "")
+		itObj := isClassType ? obj.OwnProps() : obj
+
+		if (isClassType) {
+			out .= q "$type" q (indent ? ": " : ":") q ObjGetBase(obj).__Class q ( indent ? ",`n" . indt : "," )
+		}
+
+		for k, v in itObj {
+			if (IsObject(k) || k == "") {
 				throw Error("Invalid object key.", -1, k ? Format("<Object at 0x{:p}>", ObjPtr(obj)) : "<blank>")
-			
-			if !is_array ;// key ; ObjGetCapacity([k], 1)
-				out .= (ObjGetCapacity([k]) ? Jxon_Dump(k) : q k q) (indent ? ": " : ":") ; token + padding
-			
-			out .= Jxon_Dump(v, indent, lvl) ; value
+			}
+
+			if !isArrayType { ;// key ; ObjGetCapacity([k], 1)
+				out .= (ObjGetCapacity([k]) ? JxonEncode(k) : q k q) (indent ? ": " : ":") ; token + padding
+			}
+
+			out .= JxonEncode(v, indent, lvl) ; value
 				.  ( indent ? ",`n" . indt : "," ) ; token + indent
 		}
 
@@ -191,12 +216,13 @@ Jxon_Dump(obj, indent:="", lvl:=1) {
 			if (indent != "")
 				out := "`n" . indt . out . "`n" . SubStr(indt, StrLen(indent)+1)
 		}
-		
-		return is_array ? "[" . out . "]" : "{" . out . "}"
+
+		return isArrayType ? "[" . out . "]" : "{" . out . "}"
+	
 	} else { ; Number
-		If (Type(obj) != "String")
+		if (Type(obj) != "String") {
 			return obj
-		Else {
+		} else {
             obj := StrReplace(obj,"\","\\")
 			obj := StrReplace(obj,"`t","\t")
 			obj := StrReplace(obj,"`r","\r")
@@ -210,3 +236,24 @@ Jxon_Dump(obj, indent:="", lvl:=1) {
 	}
 }
 
+_ConvertObjectMapsToObjects(it) {
+	if !(it is Object) {
+		return it
+	}
+	
+	if (it is Map && it.Has("$type")) {
+		obj := %it["$type"]%()
+		for k,v in it {
+			if (k == "$type") {
+				continue
+			}
+			obj.%k% := _ConvertObjectMapsToObjects(v)
+		}
+		return obj
+	}
+	
+	for k,v in it {
+		it[k] := _ConvertObjectMapsToObjects(v)
+	}
+	return it
+}
