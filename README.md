@@ -5,7 +5,7 @@ Thanks to cocobelgica for his initial AHK v1 release [here](https://github.com/c
 
 The focus of this serializer is compatibility with JSON.
 
-Only Array(), Map(), Class() or a nested combination is supported.
+Only Array(), Map(), Object() or a nested combination is supported.
 
 ## JxonEncode(obj, indent:=0)
 
@@ -27,4 +27,4 @@ Input must be properly formatted JSON text. If not properly formatted an error w
 
 The input `&text` must be passed as a VarRef with the `&` character.  This will ensure better performance and memory savings with massive input strings.
 
-Limitation: Class objects to be decoded must have a constructor without parameters (which will be executed to create object instance).
+Limitation: Class which objects are to be decoded must have a constructor able to be executed without arguments (will be called to instantiate the Class).
