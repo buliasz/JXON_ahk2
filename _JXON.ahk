@@ -50,7 +50,7 @@ JxonDecode(&src, args*) {
 		if !InStr(next, ch, true) {
 			testArr := StrSplit(SubStr(src, 1, pos), "`n")
 
-			ln := testArr.Length
+			testArrLength := testArr.Length
 			col := pos - InStr(src, "`n",, -(StrLen(src)-pos+1))
 
 			msg := Format("{}: line {} col {} (char {})"
@@ -64,7 +64,7 @@ JxonDecode(&src, args*) {
 			  : (next == ",]")    ? "Expecting ',' delimiter or array closing ']'"
 			  : [ "Expecting JSON value(string, number, [true, false, null], object or array)"
 			    , ch := SubStr(src, pos, (SubStr(src, pos)~="[\]\},\s]|$")-1) ][1]
-			, ln, col, pos)
+			, testArrLength, col, pos)
 
 			throw Error(msg, -1, ch)
 		}
@@ -73,8 +73,8 @@ JxonDecode(&src, args*) {
 		memType := Type(obj)
 		isArrayType := (memType = "Array") ? 1 : 0
 
-		if i := InStr("{[", ch) { ; start new object/map or array
-			if (i == 1) {
+		if indx := InStr("{[", ch) { ; start new object/map or array
+			if (indx == 1) {
 				val := Map()
 			} else {
 				val := Array()
@@ -102,16 +102,16 @@ JxonDecode(&src, args*) {
 
 		} else { ; string | number | true | false | null
 			if (ch == q) { ; string
-				i := pos
-				while i := InStr(src, q,, i+1) {
-					val := StrReplace(SubStr(src, pos+1, i-pos-1), "\\", "\u005C")
+				indx := pos
+				while indx := InStr(src, q,, indx+1) {
+					val := StrReplace(SubStr(src, pos+1, indx-pos-1), "\\", "\u005C")
 					if (SubStr(val, -1) != "\")
 						break
 				}
-				if !i ? (pos--, next := "'") : 0
+				if !indx ? (pos--, next := "'") : 0
 					continue
 
-				pos := i ; update pos
+				pos := indx ; update pos
 
 				val := StrReplace(val, "\/", "/")
 				val := StrReplace(val, "\" . q, q)
@@ -121,14 +121,14 @@ JxonDecode(&src, args*) {
 				val := StrReplace(val, "\r", "`r")
 				val := StrReplace(val, "\t", "`t")
 
-				i := 0
-				while i := InStr(val, "\",, i+1) {
-					if (SubStr(val, i+1, 1) != "u") ? (pos -= StrLen(SubStr(val, i)), next := "\") : 0
+				indx := 0
+				while indx := InStr(val, "\",, indx+1) {
+					if (SubStr(val, indx+1, 1) != "u") ? (pos -= StrLen(SubStr(val, indx)), next := "\") : 0
 						continue 2
 
-					xxxx := Abs("0x" . SubStr(val, i+2, 4)) ; \uXXXX - JSON unicode escape sequence
+					xxxx := Abs("0x" . SubStr(val, indx+2, 4)) ; \uXXXX - JSON unicode escape sequence
 					if (xxxx < 0x100)
-						val := SubStr(val, 1, i-1) . Chr(xxxx) . SubStr(val, i+6)
+						val := SubStr(val, 1, indx-1) . Chr(xxxx) . SubStr(val, indx+6)
 				}
 
 				if isKey {
@@ -137,7 +137,7 @@ JxonDecode(&src, args*) {
 				}
 
 			} else { ; number | true | false | null
-				val := SubStr(src, pos, i := RegExMatch(src, "[\]\},\s]|$",, pos)-pos)
+				val := SubStr(src, pos, indx := RegExMatch(src, "[\]\},\s]|$",, pos)-pos)
 
                 if IsInteger(val)
                     val += 0
@@ -152,7 +152,7 @@ JxonDecode(&src, args*) {
                     continue
                 }
 
-				pos += i-1
+				pos += indx-1
 			}
 
 			isArrayType ? obj.Push(val) : obj[key] := val
@@ -220,9 +220,9 @@ JxonEncode(obj, indent:="", lvl:=1) {
 
 		return isArrayType ? "[" . out . "]" : "{" . out . "}"
 	
-	} else { ; Number
+	} else {
 		if (Type(obj) != "String") {
-			return obj
+			return obj	 ; Number
 		} else {
             obj := StrReplace(obj,"\","\\")
 			obj := StrReplace(obj,"`t","\t")
@@ -232,7 +232,7 @@ JxonEncode(obj, indent:="", lvl:=1) {
 			obj := StrReplace(obj,"`f","\f")
 			obj := StrReplace(obj,"/","\/")
 			obj := StrReplace(obj,q,"\" q)
-			return q obj q
+			return q obj q	; String
 		}
 	}
 }
