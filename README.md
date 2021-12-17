@@ -5,7 +5,7 @@ Thanks to cocobelgica for his initial AHK v1 release [here](https://github.com/c
 
 The focus of this serializer is compatibility with JSON.
 
-Only Array(), Map(), Object() or a nested combination is supported.
+Most Array(), Map(), Object() or a nested combination are supported (with exception for maps with object type keys, those are not supported).
 
 ## JxonEncode(obj, indent:=0)
 
