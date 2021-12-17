@@ -1,5 +1,5 @@
 # JXON_ahk2
-JSON serializer for AHK v2 (beta.1)
+JSON serializer for AHK v2 (beta.3)
 
 Thanks to cocobelgica for his initial AHK v1 release [here](https://github.com/cocobelgica/AutoHotkey-JSON).
 
