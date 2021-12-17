@@ -36,12 +36,10 @@
 ; https://github.com/cocobelgica/AutoHotkey-JSON
 
 JxonDecode(&src, args*) {
-	static q := Chr(34)
-
 	key := "", isKey := false
 	stack := [ tree := [] ]
 	isArr := Map(tree, 1) ; ahk v2
-	next := q "{[01234567890-tfn"
+	next := '"{[01234567890-tfn'
 	pos := 0
 
 	while ( (ch := SubStr(src, ++pos, 1)) != "" ) {
@@ -58,8 +56,8 @@ JxonDecode(&src, args*) {
 			  : (next == "'")     ? "Unterminated string starting at"
 			  : (next == "\")     ? "Invalid \escape"
 			  : (next == ":")     ? "Expecting ':' delimiter"
-			  : (next == q)       ? "Expecting object key enclosed in double quotes"
-			  : (next == q . "}") ? "Expecting object key enclosed in double quotes or object closing '}'"
+			  : (next == '"')     ? "Expecting object key enclosed in double quotes"
+			  : (next == '"}')    ? "Expecting object key enclosed in double quotes or object closing '}'"
 			  : (next == ",}")    ? "Expecting ',' delimiter or object closing '}'"
 			  : (next == ",]")    ? "Expecting ',' delimiter or array closing ']'"
 			  : [ "Expecting JSON value(string, number, [true, false, null], object or array)"
@@ -85,12 +83,12 @@ JxonDecode(&src, args*) {
 			} else {
 				obj[key] := val
 			}
-			
+
 			stack.InsertAt(1,val)
 
 			isKey := (ch == "{")
 			isArr[val] := !isKey
-			next := q (isKey ? "}" : "{[]0123456789-tfn")
+			next := '"' (isKey ? "}" : "{[]0123456789-tfn")
 
 		} else if InStr("}]", ch) {	; end object/map or array
 			stack.RemoveAt(1)
@@ -98,12 +96,12 @@ JxonDecode(&src, args*) {
 
 		} else if InStr(",:", ch) {
 			isKey := (!isArrayType && ch == ",")
-			next := isKey ? q : q "{[0123456789-tfn"
+			next := isKey ? '"' : '"{[0123456789-tfn'
 
 		} else { ; string | number | true | false | null
-			if (ch == q) { ; string
+			if (ch == '"') { ; string
 				indx := pos
-				while indx := InStr(src, q,, indx+1) {
+				while indx := InStr(src, '"',, indx+1) {
 					val := StrReplace(SubStr(src, pos+1, indx-pos-1), "\\", "\u005C")
 					if (SubStr(val, -1) != "\")
 						break
@@ -114,7 +112,7 @@ JxonDecode(&src, args*) {
 				pos := indx ; update pos
 
 				val := StrReplace(val, "\/", "/")
-				val := StrReplace(val, "\" . q, q)
+				val := StrReplace(val, '\"', '"')
 				val := StrReplace(val, "\b", "`b")
 				val := StrReplace(val, "\f", "`f")
 				val := StrReplace(val, "\n", "`n")
@@ -164,8 +162,6 @@ JxonDecode(&src, args*) {
 }
 
 JxonEncode(obj, indent:="", lvl:=1) {
-	static q := Chr(34)
-
 	if IsObject(obj) {
 		isArrayType := (obj is Array)
 		isMapType := (obj is Map)
@@ -195,7 +191,7 @@ JxonEncode(obj, indent:="", lvl:=1) {
 		itObj := isClassType ? obj.OwnProps() : obj
 
 		if (isClassType) {
-			out .= q "$type" q (indent ? ": " : ":") q ObjGetBase(obj).__Class q ( indent ? ",`n" . indt : "," )
+			out .= '"$type"' (indent ? ": " : ":") '"' ObjGetBase(obj).__Class '"' ( indent ? ",`n" . indt : "," )
 		}
 
 		for (k, v in itObj) {
@@ -204,7 +200,7 @@ JxonEncode(obj, indent:="", lvl:=1) {
 			}
 
 			if !isArrayType { ;// key ; ObjGetCapacity([k], 1)
-				out .= (ObjGetCapacity([k]) ? JxonEncode(k) : q k q) (indent ? ": " : ":") ; token + padding
+				out .= (ObjGetCapacity([k]) ? JxonEncode(k) : EscapeStr(k)) (indent ? ": " : ":") ; token + padding
 			}
 
 			out .= JxonEncode(v, indent, lvl) ; value
@@ -219,11 +215,15 @@ JxonEncode(obj, indent:="", lvl:=1) {
 		}
 
 		return isArrayType ? "[" . out . "]" : "{" . out . "}"
-	
+
 	} else {
 		if (Type(obj) != "String") {
 			return obj	 ; Number
 		} else {
+		    return EscapeStr(obj)
+		}
+
+		EscapeStr(obj) {
             obj := StrReplace(obj,"\","\\")
 			obj := StrReplace(obj,"`t","\t")
 			obj := StrReplace(obj,"`r","\r")
@@ -231,8 +231,9 @@ JxonEncode(obj, indent:="", lvl:=1) {
 			obj := StrReplace(obj,"`b","\b")
 			obj := StrReplace(obj,"`f","\f")
 			obj := StrReplace(obj,"/","\/")
-			obj := StrReplace(obj,q,"\" q)
-			return q obj q	; String
+			obj := StrReplace(obj,'"','\"')
+
+			return '"' obj '"'
 		}
 	}
 }
@@ -241,7 +242,7 @@ _ConvertObjectMapsToObjects(it) {
 	if !(it is Object) {
 		return it
 	}
-	
+
 	if (it is Map && it.Has("$type")) {
 		obj := %it["$type"]%()
 		for k,v in it {
@@ -252,7 +253,7 @@ _ConvertObjectMapsToObjects(it) {
 		}
 		return obj
 	}
-	
+
 	for k,v in it {
 		it[k] := _ConvertObjectMapsToObjects(v)
 	}
